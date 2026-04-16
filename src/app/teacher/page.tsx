@@ -46,6 +46,7 @@ export default async function TeacherDashboard() {
   const menuItems = [
     { href: '/teacher/attendance', title: '출석 체크', desc: '출석 확인 + 달란트 일괄 지급', icon: '✅' },
     { href: '/teacher/grant', title: '달란트 지급', desc: '개별 달란트 지급/차감', icon: '💰' },
+    { href: '/teacher/purchase', title: '구매 처리', desc: '달란트 잔치 구매', icon: '🛒' },
     { href: '/teacher/students', title: '학생 관리', desc: '학생 정보 관리', icon: '👥' },
   ]
 
@@ -55,7 +56,7 @@ export default async function TeacherDashboard() {
 
       <main className="p-4 max-w-lg mx-auto space-y-4">
         {/* 메뉴 카드 */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {menuItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">

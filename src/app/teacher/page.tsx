@@ -11,13 +11,12 @@ export default async function TeacherDashboard() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*, classes(*), departments(*)')
+    .select('*')
     .eq('id', user.id)
     .single()
 
   if (!profile || profile.role !== 'teacher') redirect('/')
 
-  // 내 반 학생들 조회
   const { data: students } = await supabase
     .from('profiles')
     .select('id, name, grade')
@@ -25,7 +24,6 @@ export default async function TeacherDashboard() {
     .eq('role', 'student')
     .order('name')
 
-  // 각 학생의 달란트 잔액 계산
   const studentIds = students?.map((s) => s.id) || []
   let balances: Record<string, number> = {}
 
@@ -44,57 +42,70 @@ export default async function TeacherDashboard() {
   }
 
   const menuItems = [
-    { href: '/teacher/attendance', title: '출석 체크', desc: '출석 확인 + 달란트 일괄 지급', icon: '✅' },
-    { href: '/teacher/grant', title: '달란트 지급', desc: '개별 달란트 지급/차감', icon: '💰' },
-    { href: '/teacher/purchase', title: '구매 처리', desc: '달란트 잔치 구매', icon: '🛒' },
-    { href: '/teacher/students', title: '학생 관리', desc: '학생 정보 관리', icon: '👥' },
+    { href: '/teacher/attendance', title: '출석 체크', desc: '출석 + 달란트 일괄 지급', icon: '✅', color: 'bg-green-50 text-green-600' },
+    { href: '/teacher/grant', title: '달란트 지급', desc: '개별 달란트 지급/차감', icon: '💰', color: 'bg-yellow-50 text-yellow-600' },
+    { href: '/teacher/purchase', title: '구매 처리', desc: '달란트 잔치 구매', icon: '🛒', color: 'bg-orange-50 text-orange-600' },
+    { href: '/teacher/students', title: '학생 관리', desc: '학생 정보 관리', icon: '👥', color: 'bg-blue-50 text-blue-600' },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <NavHeader title="교사 페이지" userName={profile.name} />
 
-      <main className="p-4 max-w-lg mx-auto space-y-4">
-        {/* 메뉴 카드 */}
+      <main className="p-4 max-w-lg mx-auto space-y-4 animate-fade-in">
+        {/* Menu Grid */}
         <div className="grid grid-cols-2 gap-3">
           {menuItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardContent className="p-3 text-center">
-                  <div className="text-2xl mb-1">{item.icon}</div>
-                  <p className="text-sm font-medium">{item.title}</p>
+              <Card className="border-0 shadow-md card-hover cursor-pointer h-full">
+                <CardContent className="p-4">
+                  <div className={`w-10 h-10 rounded-xl ${item.color} flex items-center justify-center text-xl mb-2`}>
+                    {item.icon}
+                  </div>
+                  <p className="font-semibold text-sm">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
 
-        {/* 내 반 학생 현황 */}
-        <Card>
+        {/* Student List */}
+        <Card className="border-0 shadow-md">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base flex items-center gap-2">
+              <span>👥</span>
               내 반 학생 ({students?.length || 0}명)
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {students && students.length > 0 ? (
-              <div className="space-y-2">
+              <div className="divide-y">
                 {students.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <div>
-                      <p className="text-sm font-medium">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">{s.grade}</p>
+                  <div key={s.id} className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full gradient-primary text-white flex items-center justify-center text-sm font-bold">
+                        {s.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">{s.grade}</p>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-blue-600">
-                      {(balances[s.id] || 0).toLocaleString()} 달란트
-                    </span>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-blue-600">
+                        {(balances[s.id] || 0).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">달란트</p>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                아직 등록된 학생이 없습니다.
-              </p>
+              <div className="text-center py-8">
+                <span className="text-3xl block mb-2">📭</span>
+                <p className="text-sm text-muted-foreground">등록된 학생이 없습니다</p>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -36,7 +36,7 @@ export default function LoginPage() {
     const pin = formData.get('pin') as string
     const email = `student${pin}@dalant-app.com`
     const { error } = await supabase.auth.signInWithPassword({ email, password: pin })
-    if (error) { setError('이름 또는 PIN 번호가 올바르지 않습니다.'); setLoading(false); return }
+    if (error) { setError(`로그인 실패: ${error.message} (${email})`); setLoading(false); return }
     router.push('/')
     router.refresh()
   }

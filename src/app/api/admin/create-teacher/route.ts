@@ -29,16 +29,41 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { name, role: 'teacher' },
-  })
+  let userId: string | undefined
 
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 400 })
+  try {
+    const { data, error } = await adminSupabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name, role: 'teacher' },
+    })
+    if (!error && data?.user) userId = data.user.id
+  } catch {
+    // fallback
   }
 
-  return NextResponse.json({ data: authData })
+  if (!userId) {
+    const { data, error } = await adminSupabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, role: 'teacher' } },
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    userId = data.user?.id
+  }
+
+  if (!userId) {
+    return NextResponse.json({ error: '사용자 생성 실패' }, { status: 500 })
+  }
+
+  await adminSupabase
+    .from('profiles')
+    .upsert({
+      id: userId,
+      name,
+      role: 'teacher',
+    }, { onConflict: 'id' })
+
+  return NextResponse.json({ data: { userId, email } })
 }

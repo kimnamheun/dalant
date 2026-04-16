@@ -63,13 +63,10 @@ export default function LoginPage() {
             <TabsContent value="student">
               <form onSubmit={handlePinLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">이름</Label>
-                  <Input id="name" name="name" placeholder="이름을 입력하세요" className="h-12 text-base" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pin" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PIN 번호</Label>
-                  <Input id="pin" name="pin" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6}
-                    placeholder="PIN 번호 입력" className="h-12 text-base tracking-[0.5em] text-center" required />
+                  <Label htmlFor="pin" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PIN 번호 (6자리)</Label>
+                  <Input id="pin" name="pin" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={6} minLength={6}
+                    placeholder="6자리 PIN 번호 입력" className="h-14 text-xl tracking-[0.5em] text-center" required />
+                  <p className="text-xs text-muted-foreground text-center">선생님께 받은 PIN 번호를 입력하세요</p>
                 </div>
                 {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded-lg">{error}</p>}
                 <Button type="submit" className="w-full h-12 text-base font-semibold gradient-primary border-0" disabled={loading}>

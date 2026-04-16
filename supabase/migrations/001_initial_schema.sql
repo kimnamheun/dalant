@@ -1,30 +1,26 @@
--- 달란트 잔치 시스템 초기 스키마
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ENUM 타입 생성
 CREATE TYPE user_role AS ENUM ('admin', 'teacher', 'student');
 CREATE TYPE transaction_type AS ENUM ('attendance', 'activity', 'purchase', 'bonus', 'adjustment');
 CREATE TYPE event_status AS ENUM ('draft', 'active', 'closed');
 CREATE TYPE product_category AS ENUM ('supply', 'food', 'toy', 'etc');
 
--- 부서 테이블
 CREATE TABLE departments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(100) NOT NULL,
   sort_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 반 테이블
 CREATE TABLE classes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
   name VARCHAR(100) NOT NULL,
-  teacher_id UUID,  -- profiles 생성 후 FK 추가
+  teacher_id UUID,
   sort_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 사용자 프로필 테이블
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name VARCHAR(100) NOT NULL,
@@ -33,18 +29,16 @@ CREATE TABLE profiles (
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
   class_id UUID REFERENCES classes(id) ON DELETE SET NULL,
   grade VARCHAR(20),
-  pin VARCHAR(10),  -- 학생 간편 로그인용
+  pin VARCHAR(10),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- classes의 teacher_id FK 추가
 ALTER TABLE classes
   ADD CONSTRAINT fk_classes_teacher
   FOREIGN KEY (teacher_id) REFERENCES profiles(id) ON DELETE SET NULL;
 
--- 달란트 잔치 이벤트 테이블
 CREATE TABLE events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(200) NOT NULL,
   status event_status NOT NULL DEFAULT 'draft',
   start_date TIMESTAMPTZ,
@@ -52,9 +46,8 @@ CREATE TABLE events (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 달란트 트랜잭션 테이블
 CREATE TABLE talent_transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   student_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   amount INT NOT NULL,
   type transaction_type NOT NULL,
@@ -64,9 +57,8 @@ CREATE TABLE talent_transactions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 잔치 상품 테이블
 CREATE TABLE event_products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   name VARCHAR(200) NOT NULL,
   category product_category NOT NULL DEFAULT 'etc',
@@ -76,9 +68,8 @@ CREATE TABLE event_products (
   sort_order INT DEFAULT 0
 );
 
--- 구매 내역 테이블
 CREATE TABLE purchases (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   product_id UUID NOT NULL REFERENCES event_products(id) ON DELETE CASCADE,
@@ -87,7 +78,6 @@ CREATE TABLE purchases (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 인덱스
 CREATE INDEX idx_profiles_role ON profiles(role);
 CREATE INDEX idx_profiles_class ON profiles(class_id);
 CREATE INDEX idx_profiles_department ON profiles(department_id);
@@ -98,7 +88,6 @@ CREATE INDEX idx_event_products_event ON event_products(event_id);
 CREATE INDEX idx_purchases_student ON purchases(student_id);
 CREATE INDEX idx_purchases_event ON purchases(event_id);
 
--- 달란트 잔액 조회 뷰
 CREATE VIEW student_balances AS
 SELECT
   p.id,
@@ -112,7 +101,6 @@ LEFT JOIN talent_transactions t ON t.student_id = p.id
 WHERE p.role = 'student'
 GROUP BY p.id, p.name, p.grade, p.class_id, p.department_id;
 
--- RLS (Row Level Security) 정책
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -121,7 +109,6 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
 
--- 관리자: 모든 테이블 접근 가능
 CREATE POLICY "admin_all_departments" ON departments
   FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
@@ -157,7 +144,6 @@ CREATE POLICY "admin_all_purchases" ON purchases
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
--- 교사: 읽기 + 자기 반 관련 쓰기
 CREATE POLICY "teacher_read_departments" ON departments
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('teacher', 'student'))
@@ -185,14 +171,12 @@ CREATE POLICY "teacher_read_transactions" ON talent_transactions
     OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'teacher')
   );
 
--- 학생: 자기 정보 읽기만
 CREATE POLICY "student_read_own_profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "student_read_own_transactions" ON talent_transactions
   FOR SELECT USING (student_id = auth.uid());
 
--- 이벤트/상품: 모든 인증 사용자 읽기
 CREATE POLICY "all_read_events" ON events
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
@@ -205,13 +189,11 @@ CREATE POLICY "all_read_purchases" ON purchases
     OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'teacher'))
   );
 
--- 구매 처리 (교사/관리자만)
 CREATE POLICY "staff_manage_purchases" ON purchases
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'teacher'))
   );
 
--- 프로필 자동 생성 함수 (Auth 회원가입 시)
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { addToCart } from '@/lib/cart'
+import { useCart } from '@/lib/use-cart'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,8 +56,11 @@ const categoryColors: Record<string, string> = {
 export function ShopLanding({ event, products, profile, balance }: ShopLandingProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { count: cartCount } = useCart()
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [filterCategory, setFilterCategory] = useState<string>('')
+  const [toast, setToast] = useState('')
 
   const filtered = filterCategory
     ? products.filter((p) => p.category === filterCategory)
@@ -67,13 +72,38 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
   }
 
   function handleProductClick(p: Product) {
-    // Not logged in → go to login
     if (!profile) {
       router.push('/login')
       return
     }
-    // Logged in → show purchase intent dialog
     setSelectedProduct(p)
+  }
+
+  function handleAddToCart(p: Product) {
+    if (!profile) {
+      router.push('/login')
+      return
+    }
+    if (profile.role !== 'student') {
+      showToast('학생만 장바구니를 사용할 수 있습니다')
+      return
+    }
+    addToCart({
+      productId: p.id,
+      name: p.name,
+      price: p.price,
+      imageUrl: p.image_url,
+      quantity: 1,
+      eventId: event!.id,
+      stock: p.stock,
+    })
+    showToast(`${p.name} 장바구니에 담음`)
+    setSelectedProduct(null)
+  }
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2000)
   }
 
   function goToDashboard() {
@@ -82,26 +112,29 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
     else router.push('/student')
   }
 
-  const canAfford = selectedProduct && profile?.role === 'student' && balance >= selectedProduct.price
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-indigo-50">
-      {/* Top Nav */}
       <header className="sticky top-0 z-50 glass border-b px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center text-white font-bold text-sm">T</div>
             <h1 className="text-base font-bold tracking-tight">달란트 잔치</h1>
           </div>
           <div className="flex items-center gap-2">
+            {profile?.role === 'student' && (
+              <Link href="/student/cart" className="relative">
+                <Button size="sm" variant="outline" className="pr-3">
+                  🛒 장바구니
+                  {cartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                      {cartCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+            )}
             {profile ? (
               <>
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs text-muted-foreground">{profile.name}</p>
-                  {profile.role === 'student' && (
-                    <p className="text-sm font-bold text-blue-600">{balance.toLocaleString()} 달란트</p>
-                  )}
-                </div>
                 <Button size="sm" variant="outline" onClick={goToDashboard}>
                   내 페이지
                 </Button>
@@ -119,7 +152,6 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
       </header>
 
       <main className="p-4 max-w-4xl mx-auto space-y-4 animate-fade-in">
-        {/* Hero / Event banner */}
         {event ? (
           <Card className="border-0 shadow-xl overflow-hidden">
             <div className="gradient-gold text-white p-6">
@@ -151,7 +183,6 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
           </Card>
         )}
 
-        {/* Category filter */}
         {products.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             <button
@@ -180,17 +211,16 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
           </div>
         )}
 
-        {/* Product grid */}
         {filtered.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {filtered.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleProductClick(p)}
-                disabled={p.stock <= 0}
-                className="text-left disabled:opacity-50"
-              >
-                <Card className="border-0 shadow-md card-hover overflow-hidden h-full">
+              <Card key={p.id} className="border-0 shadow-md overflow-hidden h-full">
+                <button
+                  type="button"
+                  onClick={() => handleProductClick(p)}
+                  disabled={p.stock <= 0}
+                  className="block w-full text-left disabled:opacity-60"
+                >
                   <div className="aspect-square bg-gray-100 relative">
                     {p.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -207,15 +237,25 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
                       </div>
                     )}
                   </div>
-                  <CardContent className="p-3">
-                    <p className="font-semibold text-sm truncate">{p.name}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-blue-600 font-extrabold">{p.price}</span>
-                      <span className="text-xs text-muted-foreground">재고 {p.stock}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </button>
+                </button>
+                <CardContent className="p-3 space-y-2">
+                  <p className="font-semibold text-sm truncate">{p.name}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-blue-600 font-extrabold">{p.price}</span>
+                    <span className="text-xs text-muted-foreground">재고 {p.stock}</span>
+                  </div>
+                  {profile?.role === 'student' && p.stock > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full h-8 text-xs"
+                      onClick={() => handleAddToCart(p)}
+                    >
+                      🛒 담기
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : products.length > 0 ? (
@@ -228,12 +268,14 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
 
         <div className="text-center py-4">
           <p className="text-xs text-muted-foreground">
-            상품을 클릭하면 구매 안내가 표시됩니다
+            {profile?.role === 'student'
+              ? '장바구니에 담은 후 구매 요청 → 선생님 승인 후 달란트가 차감됩니다'
+              : '상품을 클릭하면 상세 정보가 표시됩니다'}
           </p>
         </div>
       </main>
 
-      {/* Product detail / purchase intent dialog */}
+      {/* Product detail dialog */}
       <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
         <DialogContent>
           <DialogHeader>
@@ -262,27 +304,10 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
               </div>
 
               {profile?.role === 'student' && (
-                <div className={`rounded-lg p-3 ${canAfford ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div className={`rounded-lg p-3 ${balance >= selectedProduct.price ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                   <p className="text-xs text-muted-foreground">내 달란트</p>
-                  <p className={`text-lg font-bold ${canAfford ? 'text-green-600' : 'text-red-500'}`}>
+                  <p className={`text-lg font-bold ${balance >= selectedProduct.price ? 'text-green-600' : 'text-red-500'}`}>
                     {balance.toLocaleString()} 달란트
-                  </p>
-                  {canAfford ? (
-                    <p className="text-xs text-green-700 mt-1">
-                      ✓ 구매 가능합니다. <strong>선생님께 구매를 요청하세요.</strong>
-                    </p>
-                  ) : (
-                    <p className="text-xs text-red-600 mt-1">
-                      달란트가 부족합니다 ({selectedProduct.price - balance} 부족)
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {(profile?.role === 'teacher' || profile?.role === 'admin') && (
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <p className="text-sm text-blue-700">
-                    학생의 구매를 처리하려면 구매 처리 페이지로 이동하세요.
                   </p>
                 </div>
               )}
@@ -291,12 +316,21 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
                 <Button variant="outline" className="flex-1" onClick={() => setSelectedProduct(null)}>
                   닫기
                 </Button>
+                {profile?.role === 'student' && (
+                  <Button
+                    className="flex-1 gradient-primary border-0"
+                    onClick={() => handleAddToCart(selectedProduct)}
+                    disabled={selectedProduct.stock <= 0}
+                  >
+                    🛒 장바구니 담기
+                  </Button>
+                )}
                 {(profile?.role === 'teacher' || profile?.role === 'admin') && (
                   <Button
                     className="flex-1 gradient-primary border-0"
-                    onClick={() => router.push('/teacher/purchase')}
+                    onClick={() => router.push('/teacher/approvals')}
                   >
-                    구매 처리하기
+                    승인 대기 보기
                   </Button>
                 )}
               </div>
@@ -304,6 +338,12 @@ export function ShopLanding({ event, products, profile, balance }: ShopLandingPr
           )}
         </DialogContent>
       </Dialog>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50 animate-fade-in">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

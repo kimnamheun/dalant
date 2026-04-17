@@ -28,7 +28,6 @@ export default async function StudentDashboard() {
     .limit(10)
 
   const balance = transactions?.reduce((sum, t) => sum + t.amount, 0) ?? 0
-
   const earned = transactions?.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0) ?? 0
   const spent = transactions?.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0) ?? 0
 
@@ -36,7 +35,18 @@ export default async function StudentDashboard() {
     .from('events')
     .select('id, name')
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
+
+  // Pending purchase requests
+  const { data: pendingRaw } = await supabase
+    .from('purchases')
+    .select('cart_id, status')
+    .eq('student_id', user.id)
+    .in('status', ['pending', 'rejected'])
+    .not('cart_id', 'is', null)
+
+  const pendingCartIds = new Set((pendingRaw || []).filter((p) => p.status === 'pending').map((p) => p.cart_id))
+  const rejectedCartIds = new Set((pendingRaw || []).filter((p) => p.status === 'rejected').map((p) => p.cart_id))
 
   const typeIcons: Record<string, string> = {
     attendance: '✅',
@@ -51,7 +61,6 @@ export default async function StudentDashboard() {
       <NavHeader title="달란트 잔치" userName={profile.name} />
 
       <main className="p-4 max-w-lg mx-auto space-y-4 animate-fade-in">
-        {/* Balance Card */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-blue-100">
           <CardContent className="p-0">
             <div className="gradient-primary text-white p-6 pb-8">
@@ -72,9 +81,33 @@ export default async function StudentDashboard() {
           </CardContent>
         </Card>
 
+        {/* Pending purchase alert */}
+        {(pendingCartIds.size > 0 || rejectedCartIds.size > 0) && (
+          <Link href="/student/cart">
+            <Card className="border-0 shadow-lg overflow-hidden card-hover cursor-pointer">
+              <CardContent className="p-0">
+                <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-4 flex items-center gap-3">
+                  <span className="text-2xl">📋</span>
+                  <div className="flex-1">
+                    <p className="font-bold">
+                      내 구매 요청 {pendingCartIds.size > 0 && `(대기 ${pendingCartIds.size}건)`}
+                    </p>
+                    <p className="text-sm opacity-90">
+                      {pendingCartIds.size > 0 ? '선생님의 승인을 기다리고 있어요' : '거절된 요청이 있어요'}
+                    </p>
+                  </div>
+                  <svg className="w-5 h-5 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
         {/* Event Banner */}
         {activeEvent && (
-          <Link href="/student/event">
+          <Link href="/">
             <Card className="border-0 shadow-lg overflow-hidden card-hover cursor-pointer">
               <CardContent className="p-0">
                 <div className="gradient-gold text-white p-4 flex items-center justify-between">

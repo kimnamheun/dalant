@@ -35,23 +35,24 @@ export default async function AdminDashboard() {
 
   const { data: activeEvent } = await supabase
     .from('events')
-    .select('name')
+    .select('id, name')
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
 
   const stats = [
-    { label: '학생', value: studentCount || 0, icon: '👥', color: 'from-blue-500 to-blue-600' },
-    { label: '교사', value: teacherCount || 0, icon: '👨‍🏫', color: 'from-green-500 to-green-600' },
-    { label: '부서', value: deptCount || 0, icon: '🏫', color: 'from-purple-500 to-purple-600' },
+    { href: '/admin/students', label: '학생', value: studentCount || 0, icon: '👥', color: 'from-blue-500 to-blue-600' },
+    { href: '/admin/teachers', label: '교사', value: teacherCount || 0, icon: '👨‍🏫', color: 'from-green-500 to-green-600' },
+    { href: '/admin/departments', label: '부서', value: deptCount || 0, icon: '🏫', color: 'from-purple-500 to-purple-600' },
   ]
 
   const menuItems = [
+    { href: '/admin/students', title: '학생 관리', desc: '편집·삭제·검색·잔액 표시', icon: '👥', color: 'bg-purple-50 text-purple-600' },
+    { href: '/admin/teachers', title: '교사 관리', desc: '편집·삭제·반 재배정', icon: '👨‍🏫', color: 'bg-green-50 text-green-600' },
+    { href: '/admin/events', title: '달란트 잔치', desc: '이벤트 + 이미지 업로드 상품', icon: '🎉', color: 'bg-yellow-50 text-yellow-600' },
     { href: '/admin/departments', title: '부서/반 관리', desc: '부서와 반을 만들고 관리', icon: '🏫', color: 'bg-blue-50 text-blue-600' },
-    { href: '/admin/teachers', title: '교사 관리', desc: '교사 계정 관리', icon: '👨‍🏫', color: 'bg-green-50 text-green-600' },
-    { href: '/admin/students', title: '학생 관리', desc: '전체 학생 관리', icon: '👥', color: 'bg-purple-50 text-purple-600' },
-    { href: '/admin/events', title: '달란트 잔치', desc: '이벤트와 상품 관리', icon: '🎉', color: 'bg-yellow-50 text-yellow-600' },
     { href: '/admin/reports', title: '리포트', desc: '달란트 통계 확인', icon: '📊', color: 'bg-indigo-50 text-indigo-600' },
     { href: '/teacher/purchase', title: '구매 처리', desc: '달란트 잔치 구매', icon: '🛒', color: 'bg-orange-50 text-orange-600' },
+    { href: '/admin/storage-check', title: 'Storage 진단', desc: '이미지 업로드 상태 체크', icon: '🔧', color: 'bg-gray-50 text-gray-600' },
   ]
 
   return (
@@ -59,37 +60,42 @@ export default async function AdminDashboard() {
       <NavHeader title="관리자" userName={profile.name} />
 
       <main className="p-4 max-w-2xl mx-auto space-y-6 animate-fade-in">
-        {/* Stats */}
+        {/* Clickable stat cards */}
         <div className="grid grid-cols-3 gap-3">
           {stats.map((stat) => (
-            <Card key={stat.label} className="border-0 shadow-md overflow-hidden">
-              <CardContent className="p-0">
-                <div className={`bg-gradient-to-br ${stat.color} text-white p-4`}>
-                  <span className="text-2xl">{stat.icon}</span>
-                  <p className="text-3xl font-extrabold mt-1">{stat.value}</p>
-                  <p className="text-xs opacity-80 font-medium">{stat.label}</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link key={stat.label} href={stat.href}>
+              <Card className="border-0 shadow-md overflow-hidden card-hover cursor-pointer h-full">
+                <CardContent className="p-0">
+                  <div className={`bg-gradient-to-br ${stat.color} text-white p-4`}>
+                    <span className="text-2xl">{stat.icon}</span>
+                    <p className="text-3xl font-extrabold mt-1">{stat.value}</p>
+                    <p className="text-xs opacity-80 font-medium">{stat.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
 
-        {/* Active Event */}
         {activeEvent && (
-          <Card className="border-0 shadow-lg overflow-hidden">
-            <CardContent className="p-0">
-              <div className="gradient-gold text-white p-4 flex items-center gap-3">
-                <span className="text-2xl">🎉</span>
-                <div>
-                  <p className="font-bold">진행 중인 달란트 잔치</p>
-                  <p className="text-sm opacity-90">{activeEvent.name}</p>
+          <Link href="/admin/events">
+            <Card className="border-0 shadow-lg overflow-hidden card-hover cursor-pointer">
+              <CardContent className="p-0">
+                <div className="gradient-gold text-white p-4 flex items-center gap-3">
+                  <span className="text-2xl">🎉</span>
+                  <div className="flex-1">
+                    <p className="font-bold">진행 중인 달란트 잔치</p>
+                    <p className="text-sm opacity-90">{activeEvent.name}</p>
+                  </div>
+                  <svg className="w-5 h-5 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         )}
 
-        {/* Menu Grid */}
         <div>
           <h2 className="text-base font-bold mb-3">관리 메뉴</h2>
           <div className="grid grid-cols-2 gap-3">
